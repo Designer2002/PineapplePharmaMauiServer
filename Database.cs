@@ -26,7 +26,7 @@ namespace winui_db
             this.Database.EnsureCreated();
         }
         public DbSet<Medicine> Catalog { get; set; } = null!;
-        public DbSet<User> Users { get; set; }
+        public DbSet<User> Users { get; set; } = null!;
         public string DbPath { get; }
         protected override void OnConfiguring(DbContextOptionsBuilder options)
         => options.UseSqlite($"Data Source={DbPath}");

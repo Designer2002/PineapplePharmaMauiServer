@@ -11,61 +11,79 @@ namespace winui_db
 {
     public class Manager
     {
-        private static Database database = Database.GetInstance();
-        public static User? CurrentUser(string key)
+        public static async Task<User?> CurrentUser(Database database, string key)
         {
-            var existingUser = database.Users
-            .Include(u => u.ShoppingCart) // явная загрузка связанных объектов ShoppingCart
-            .FirstOrDefault(u => u.Email == key); 
-            return existingUser;
+            return await database.Users.Include(u => u.ShoppingCart).FirstOrDefaultAsync(u => u.Email == key);
         }
 
         public static Medicine GetByIdFromDatabase(int id)
         {
-             
-            return database.Catalog.FirstOrDefault(i => i.Id == id);
+            using (var database = new Database())
+            {
+                return database.Catalog.FirstOrDefault(i => i.Id == id);
+            }
         }
 
         public static User GetUserFromDatabase(string email, string password)
         {
-             
-            var user = database.Users.FirstOrDefault(i => i.Email == email);
-            if (user != null && user.Password != password)
+            using (var database = new Database())
             {
-                user = null; // Неправильный пароль
+                var user = database.Users.FirstOrDefault(i => i.Email == email);
+                if (user != null && user.Password != password)
+                {
+                    user = null; // Неправильный пароль
+                }
+                return user;
             }
-            return user;
         }
 
         public static List<Medicine>? GetByCategoryFromDatabase(string category)
         {
-             
-            return database.Catalog.Where(i => i.Category == category).ToList();
+            using (var database = new Database())
+            {
+                return database.Catalog.Where(i => i.Category == category).ToList();
+            }
         }
+
         public async static Task<bool> TryAddToCart(int id, string key)
         {
             try
             {
-                var cart = CurrentUser(key).ShoppingCart;
-                if (cart == null) return false;
-
-                var medicine = GetByIdFromDatabase(id);
-                if (medicine == null) return false;
-
-                var existingItem = cart.FirstOrDefault(c => c.Id == id);
-                if (existingItem != null)
+                using (var database = new Database())
                 {
-                    existingItem.Count += 1;
-                }
-                else
-                {
-                    cart.Add(new MedicineShoppingCartView() { Id = medicine.Id, Count = 1 });
-                }
+                    // Получаем пользователя с загруженной корзиной покупок
+                    var user = await CurrentUser(database, key);
 
-                // Логирование SQL-запросов
+                    // Если пользователь не найден или корзина покупок не загружена, возвращаем false
+                    if (user == null || user.ShoppingCart == null)
+                        return false;
+                    
+                    var cart = user.ShoppingCart;
+                    lock(cart)
+                    {
 
-                var res = await database.SaveChangesAsync();
-                return res > 0;
+                    var medicine = GetByIdFromDatabase(id);
+                    if (medicine == null) 
+                        return false;
+
+                    var existingItem = cart.FirstOrDefault(c => c.Id == id);
+                    if (existingItem != null)
+                    {
+                        existingItem.Count += 1;
+                        database.SaveChanges();
+                        return true;
+                    }
+                    else
+                    {
+                        cart.Add(new MedicineShoppingCartView() { Id = medicine.Id, Count = 1 });
+                        database.SaveChanges();
+                        return true;
+                    }
+                    
+                    // Сохраняем изменения в контексте базы данных
+                    
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -77,53 +95,61 @@ namespace winui_db
 
         public static bool TryDeleteFromCart(int id, User user)
         {
-            var cart = user.ShoppingCart;
-            var itemToRemove = cart.FirstOrDefault(c => c.Id == id);
-            if (itemToRemove == null) return false;
+            using (var database = new Database())
+            {
+                var cart = user.ShoppingCart;
+                var itemToRemove = cart.FirstOrDefault(c => c.Id == id);
+                if (itemToRemove == null) return false;
 
-            cart.Remove(itemToRemove);
+                cart.Remove(itemToRemove);
 
-             
-            database.SaveChanges();
-            return true;
+                
+                database.SaveChanges();
+                return true;
+            }
         }
 
         public static bool TryEditCount(int id, int count, User user)
         {
-            var cart = user.ShoppingCart;
-            var item = cart.FirstOrDefault(m => m.Id == id);
-            if (item == null) return false;
+            using (var database = new Database())
+            {
+                var cart = user.ShoppingCart;
+                var item = cart.FirstOrDefault(m => m.Id == id);
+                if (item == null) return false;
 
-            item.Count = count;
+                item.Count = count;
 
-             
-            database.SaveChanges();
-            return true;
+                
+                database.SaveChanges();
+                return true;
+            }
         }
 
         public static bool TryAddUser(string name, string email, string password)
         {
-             
-            try
+            using (var database = new Database())
             {
-                var existingUser = database.Users.FirstOrDefault(u => u.Email == email);
-                if (existingUser != null)
+                try
                 {
-                    Console.WriteLine("User with this email already exists.");
+                    var existingUser = database.Users.FirstOrDefault(u => u.Email == email);
+                    if (existingUser != null)
+                    {
+                        Console.WriteLine("User with this email already exists.");
+                        return false;
+                    }
+
+                    var user = new User() { Email = email, Name = name, Password = password, Role = "Customer", ShoppingCart = new List<MedicineShoppingCartView>() };
+                    database.Users.Add(user);
+                    database.SaveChanges();
+                    Console.WriteLine("SUCCESS SIGN UP");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
                     return false;
                 }
-
-                var user = new User() { Email = email, Name = name, Password = password, Role = "Customer", ShoppingCart = new List<MedicineShoppingCartView>() };
-                database.Users.Add(user);
-                database.SaveChanges();
-                Console.WriteLine("SUCCESS SIGN UP");
+                return true;
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-                return false;
-            }
-            return true;
         }
 
         public static List<(string Category, string Name, string ActiveComponent, string Description, string ReleaseForm, Countries Country, int Expiration, double Price)> Init()

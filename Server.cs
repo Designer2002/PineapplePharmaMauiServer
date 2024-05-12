@@ -33,7 +33,13 @@ class Server
     private bool breakpoint = false;
     private TcpListener server;
     private string key;
-    private User? CurrentUser => Manager.CurrentUser(key) == null ? null : Manager.CurrentUser(key);
+    private async Task<User> CurrentUser()
+    {
+        using (var database = new Database())
+        {
+            return await Manager.CurrentUser(database, key);
+        }
+    }
     public static Server GetInstance()
     {
         if (instance == null)
@@ -153,7 +159,8 @@ class Server
                         await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
                         break;
                     case (int)QueryTypes.GET_CART:
-                        var cart = CurrentUser.ShoppingCart;
+                        var c = await CurrentUser();
+                        var cart = c.ShoppingCart;
 
                         dataToSend = JsonSerializer.SerializeToUtf8Bytes<List<MedicineShoppingCartView>>(cart, new JsonSerializerOptions{ReferenceHandler = ReferenceHandler.IgnoreCycles});
                         
@@ -196,7 +203,7 @@ class Server
                             break;
                         id = del_id.GetInt32();
                         
-                        var del_result = Manager.TryDeleteFromCart(id, CurrentUser);
+                        var del_result = Manager.TryDeleteFromCart(id, await CurrentUser());
                        if (del_result)
                             dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
                         else
@@ -211,7 +218,7 @@ class Server
                             break;
                         id = s_id.GetInt32();
                         count = s_count.GetInt32();
-                        var count_result = Manager.TryEditCount(id, count, CurrentUser);
+                        var count_result = Manager.TryEditCount(id, count, await CurrentUser());
                         if (count_result)
                             dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
                         else
