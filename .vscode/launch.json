@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "name": "C#: winui_db",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}\\winui_db.csproj",
+            "launchConfigurationId": "TargetFramework=;winui_db"
+        }
+    ]
+}
