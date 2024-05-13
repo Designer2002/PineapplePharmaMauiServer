@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "oq09kFO/wpNET+Dps977OpdAbqt9GnKaTxV3TT2Qcu8nrhhfm7zxM6rR5MO34abBGUov23bkC5gxKH0TKIiWsQ==",
+  "dgSpecHash": "TMdhJR3RSkVVHOoy3eWSRwVm64BqSGD/iXF0oLNgItthDYX5HzpVzftj40yzubAs1QbJgYMtkqWXfTcQBTAU4A==",
   "success": true,
-  "projectFilePath": "c:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj",
+  "projectFilePath": "C:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\st\\.nuget\\packages\\microsoft.data.sqlite.core\\7.0.18\\microsoft.data.sqlite.core.7.0.18.nupkg.sha512",
     "C:\\Users\\st\\.nuget\\packages\\microsoft.entityframeworkcore\\7.0.18\\microsoft.entityframeworkcore.7.0.18.nupkg.sha512",

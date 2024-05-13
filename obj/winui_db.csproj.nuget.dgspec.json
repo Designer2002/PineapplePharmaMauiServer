@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj": {}
+    "C:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj": {}
   },
   "projects": {
-    "c:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj": {
+    "C:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj",
+        "projectUniqueName": "C:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj",
         "projectName": "winui_db",
-        "projectPath": "c:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj",
+        "projectPath": "C:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj",
         "packagesPath": "C:\\Users\\st\\.nuget\\packages\\",
-        "outputPath": "c:\\Users\\st\\source\\repos\\winui_db\\winui_db\\obj\\",
+        "outputPath": "C:\\Users\\st\\source\\repos\\winui_db\\winui_db\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\st\\AppData\\Roaming\\NuGet\\NuGet.Config",
