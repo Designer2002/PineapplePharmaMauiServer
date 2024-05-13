@@ -9,22 +9,14 @@ namespace winui_db
 {
     public class Database : DbContext
     {
-        private static Database instance;
-        public static Database GetInstance()
-        {
-            if (instance == null)
-                instance = new Database();
-            return instance;
-        }
         public Database()
         {
             
             var folder = Environment.SpecialFolder.LocalApplicationData;
             var path = Environment.GetFolderPath(folder);
             DbPath = System.IO.Path.Join(path, "medicine.db");
-            instance = this;
             this.Database.EnsureCreated();
-            this.ChangeTracker.Clear();
+            //this.ChangeTracker.Clear();
         }
         public DbSet<Medicine> Catalog { get; set; } = null!;
         public DbSet<User> Users { get; set; } = null!;

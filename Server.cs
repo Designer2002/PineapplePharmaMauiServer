@@ -100,125 +100,30 @@ class Server
                         Exit(client, stream);
                         break;
                     case (int)QueryTypes.LOGIN:
-                        if (!jsonObject.TryGetProperty("Email", out JsonElement login) ||  (!jsonObject.TryGetProperty("Password", out JsonElement password)))
-                            break;
-                        user_login = login.GetString();
-                        user_password = password.GetString();
-                        var user = Manager.GetUserFromDatabase(user_login, user_password);
-                        
-                        if (user != null)
-                        {
-                            key = user_login;
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<User>(user, new JsonSerializerOptions() { ReferenceHandler = ReferenceHandler.IgnoreCycles });
-                        }
-                        else
-                        {
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
-                        }
-                        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+                        await LoginAsync(jsonObject, stream);
                         break;
-
                     case (int)QueryTypes.REGISTER:
-                        if (!jsonObject.TryGetProperty("Email", out JsonElement login2) ||  (!jsonObject.TryGetProperty("Password", out JsonElement password2)) ||  (!jsonObject.TryGetProperty("Name", out JsonElement name)))
-                            break;
-                        user_name = name.GetString();
-                        user_login = login2.GetString();
-                        user_password = password2.GetString();
-                        var result = Manager.TryAddUser(user_name, user_login, user_password);
-
-                        if (result)
-                        {
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
-                        }
-                        else
-                        {
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
-                        }
-                        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+                        await RegisterAsync(jsonObject, stream);
                         break;
 
                     case (int)QueryTypes.SEARCH:
-                        if (!jsonObject.TryGetProperty("Category", out JsonElement cat))
-                            break;
-                        category = cat.GetString();
-                        var list = Manager.GetByCategoryFromDatabase(category);
-                        
-                        if (list != null)
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<List<Medicine>>(list);
-                        else
-                        {
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
-                        }
-                        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+                        await SearchAsync(jsonObject, stream);
                         break;
                     case (int)QueryTypes.GET_CART:
-                        var c = await Database.GetInstance().Users.Where(k => k.Email == key).FirstOrDefaultAsync();
-                        var cart = await Database.GetInstance().ShoppingCarts.Include(sc => sc.View).Where(o => o.Id == c.Id).FirstOrDefaultAsync();
-
-                        dataToSend = JsonSerializer.SerializeToUtf8Bytes<List<MedicineShoppingCartView>>(cart.View, new JsonSerializerOptions{ReferenceHandler = ReferenceHandler.IgnoreCycles});
-                        
-                        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+                        await GetCartAsync(stream);
                         break;
                     case (int)QueryTypes.GET_BY_ID:
-                    
-                        if (!jsonObject.TryGetProperty("Id", out JsonElement j_id))
-                            break;
-                        id = j_id.GetInt32();
-                        
-                        var item = Manager.GetByIdFromDatabase(id);
-                       if (item != null)
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<Medicine>(item);
-                        else
-                        {
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
-                        }
-                        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+                        await GetByIdAsync(jsonObject, stream);
                         break;
 
                     case (int)QueryTypes.ADD_TO_CART:
-
-                        if (!jsonObject.TryGetProperty("Id", out JsonElement js_id))
-                            break;
-                        id = js_id.GetInt32();
-                        
-                        var add_result = await Manager.TryAddToCart(id, key);
-                       if (add_result)
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
-                        else
-                        {
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
-                        }
-                        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+                        await AddToCartAsync(jsonObject, stream);
                         break;
                     case (int)QueryTypes.DELETE_FROM_CART:
-
-                        if (!jsonObject.TryGetProperty("Id", out JsonElement del_id))
-                            break;
-                        id = del_id.GetInt32();
-                        
-                        var del_result = Manager.TryDeleteFromCart(id, await Database.GetInstance().Users.Where(k => k.Email == key).FirstOrDefaultAsync());
-                       if (del_result)
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
-                        else
-                        {
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
-                        }
-                        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+                        await DeleteFromCartAsync(jsonObject, stream);
                         break;
                     case (int)QueryTypes.SET_CART_ITEM_COUNT:
-                       
-                        if (!jsonObject.TryGetProperty("Id", out JsonElement s_id) || !jsonObject.TryGetProperty("Count", out JsonElement s_count))
-                            break;
-                        id = s_id.GetInt32();
-                        count = s_count.GetInt32();
-                        var count_result = Manager.TryEditCount(id, count, await Database.GetInstance().Users.Where(k => k.Email == key).FirstOrDefaultAsync());
-                        if (count_result)
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
-                        else
-                        {
-                            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
-                        }
-                        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+                        await SetCartItemCountAsync(jsonObject, stream);
                         break;
                 }
             }
@@ -232,6 +137,177 @@ class Server
 
     }
 
+    private async Task GetCartAsync(NetworkStream stream)
+    {
+        using (var database = new Database())
+        {
+            var c = await database.Users.Where(k => k.Email == key).FirstOrDefaultAsync();
+            var cart = await database.ShoppingCarts.Include(sc => sc.View).Where(o => o.Id == c.Id).FirstOrDefaultAsync();
+
+            var dataToSend = JsonSerializer.SerializeToUtf8Bytes<List<MedicineShoppingCartView>>(cart.View, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.IgnoreCycles });
+
+            await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+        }
+    }
+
+    private async Task LoginAsync(JsonElement jsonObject, NetworkStream stream)
+    {
+        if (!jsonObject.TryGetProperty("Email", out JsonElement login) || (!jsonObject.TryGetProperty("Password", out JsonElement password)))
+            return;
+
+        var user_login = login.GetString();
+        var user_password = password.GetString();
+        
+        var user = await Manager.GetUserFromDatabaseAsync(user_login, user_password);
+        
+        byte[] dataToSend;
+        if (user != null)
+        {
+            key = user_login;
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<User>(user, new JsonSerializerOptions() { ReferenceHandler = ReferenceHandler.IgnoreCycles });
+        }
+        else
+        {
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
+        }
+        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+    }
+
+    private async Task RegisterAsync(JsonElement jsonObject, NetworkStream stream)
+    {
+        if (!jsonObject.TryGetProperty("Email", out JsonElement login2) || (!jsonObject.TryGetProperty("Password", out JsonElement password2)) || (!jsonObject.TryGetProperty("Name", out JsonElement name)))
+            return;
+
+        var user_name = name.GetString();
+        var user_login = login2.GetString();
+        var user_password = password2.GetString();
+        
+        var result = await Manager.TryAddUserAsync(user_name, user_login, user_password);
+
+        byte[] dataToSend;
+        if (result)
+        {
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
+        }
+        else
+        {
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
+        }
+        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+    }
+
+    private async Task SearchAsync(JsonElement jsonObject, NetworkStream stream)
+    {
+        if (!jsonObject.TryGetProperty("Category", out JsonElement cat))
+            return;
+
+        var category = cat.GetString();
+        
+        var list = await Manager.GetByCategoryFromDatabaseAsync(category);
+        
+        byte[] dataToSend;
+        if (list != null)
+        {
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<List<Medicine>>(list);
+        }
+        else
+        {
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
+        }
+        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+    }
+
+    private async Task GetByIdAsync(JsonElement jsonObject, NetworkStream stream)
+    {
+        if (!jsonObject.TryGetProperty("Id", out JsonElement j_id))
+            return;
+        
+        var id = j_id.GetInt32();
+        
+        var item = await Manager.GetByIdFromDatabaseAsync(id);
+        
+        byte[] dataToSend;
+        if (item != null)
+        {
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<Medicine>(item);
+        }
+        else
+        {
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
+        }
+        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+    }
+
+    private async Task DeleteFromCartAsync(JsonElement jsonObject, NetworkStream stream)
+    {
+        using (var database = new Database())
+        {
+            if (!jsonObject.TryGetProperty("Id", out JsonElement del_id))
+                return;
+            
+            var id = del_id.GetInt32();
+            
+            var del_result = await Manager.TryDeleteFromCartAsync(id, await database.Users.Where(k => k.Email == key).FirstOrDefaultAsync());
+            
+            byte[] dataToSend;
+            if (del_result)
+            {
+                dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
+            }
+            else
+            {
+                dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
+            }
+            await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+        }
+    }
+
+    private async Task SetCartItemCountAsync(JsonElement jsonObject, NetworkStream stream)
+    {
+        using (var database = new Database())
+        {
+            if (!jsonObject.TryGetProperty("Id", out JsonElement s_id) || !jsonObject.TryGetProperty("Count", out JsonElement s_count))
+                return;
+            
+            var id = s_id.GetInt32();
+            var count = s_count.GetInt32();
+            
+            var count_result = await Manager.TryEditCountAsync(id, count, await database.Users.Where(k => k.Email == key).FirstOrDefaultAsync());
+            
+            byte[] dataToSend;
+            if (count_result)
+            {
+                dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
+            }
+            else
+            {
+                dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
+            }
+            await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+        }
+        
+    }
+
+    private async Task AddToCartAsync(JsonElement jsonObject, NetworkStream stream)
+    {
+        if (!jsonObject.TryGetProperty("Id", out JsonElement js_id))
+            return;
+        
+        var id = js_id.GetInt32();
+        
+        var add_result = await Manager.TryAddToCartAsync(id, key);
+        
+        byte[] dataToSend;
+        if (add_result)
+        {
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
+        }
+        else
+        {
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
+        }
+        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+    }
     private void Exit(TcpClient client, NetworkStream stream)
     {
         breakpoint = true;

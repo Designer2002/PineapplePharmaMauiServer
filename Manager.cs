@@ -9,129 +9,130 @@ using System.Threading.Tasks;
 
 namespace winui_db
 {
-    public class Manager
+    class Manager
     {
-
-        public static Medicine GetByIdFromDatabase(int id)
+        public static async Task<User> GetUserFromDatabaseAsync(string email, string password)
         {
-            
-             return Database.GetInstance().Catalog.FirstOrDefault(i => i.Id == id);
-
-        }
-
-        public static User GetUserFromDatabase(string email, string password)
-        {
-            var database = Database.GetInstance();
-                var user = database.Users.FirstOrDefault(i => i.Email == email);
+            using (var database = new Database())
+            {
+                var user = await database.Users.FirstOrDefaultAsync(i => i.Email == email);
                 if (user != null && user.Password != password)
                 {
                     user = null; // Неправильный пароль
                 }
                 return user;
-            
+            }
         }
 
-        public static List<Medicine>? GetByCategoryFromDatabase(string category)
+        public static async Task<Medicine> GetByIdFromDatabaseAsync(int id)
         {
-            var database = Database.GetInstance();
-            
-                return database.Catalog.Where(i => i.Category == category).ToList();
-            
+            using (var database = new Database())
+            {
+                return await database.Catalog.FirstOrDefaultAsync(i => i.Id == id);
+            }
         }
 
-        public async static Task<bool> TryAddToCart(int id, string key)
+        public static async Task<List<Medicine>> GetByCategoryFromDatabaseAsync(string category)
+        {
+            using (var database = new Database())
+            {
+                return await database.Catalog.Where(i => i.Category == category).ToListAsync();
+            }
+        }
+
+        public async static Task<bool> TryAddToCartAsync(int id, string key)
         {
             try
             {
-                var database = Database.GetInstance();
-
-                // Получаем пользователя с загруженной корзиной покупок
-                var user = await database.Users.FirstOrDefaultAsync(u => u.Email == key);
-
-                // Если пользователь не найден или корзина покупок не загружена, возвращаем false
-                if (user == null)
-                    return false;
-
-                var cart = await database.ShoppingCarts.Include(sc => sc.View)
-                                       .FirstOrDefaultAsync(u => u.Id == user.Id);
-
-                // Попробуйте получить товар из базы данных
-                var medicine = GetByIdFromDatabase(id);
-                if (medicine == null)
-                    return false;
-
-                // Ищем товар в корзине покупок
-                var existingItem = cart.View.FirstOrDefault(c => c.Id == id);
-                if (existingItem != null)
+                using (var database = new Database())
                 {
-                    // Увеличиваем количество товара, если он уже есть в корзине
-                    existingItem.Count += 1;
-                }
-                else
-                {
-                    // Добавляем товар в корзину, если его там нет
-                    cart.View.Add(new MedicineShoppingCartView() { Id = medicine.Id, Count = 1 });
-                }
+                    // Начинаем транзакцию
+                    using (var transaction = database.Database.BeginTransaction())
+                    {
+                        // Получаем пользователя
+                        var user = await database.Users.FirstOrDefaultAsync(u => u.Email == key);
 
-                // Сохраняем изменения в базе данных
-                await database.SaveChangesAsync();
+                        if (user == null)
+                            return false;
 
-                return true; // Операция выполнена успешно
-            }
-            catch (DbUpdateConcurrencyException ex)
-            {
-                // Обработка ошибки concurrency
-                Console.WriteLine("Concurrency error occurred!!");
-                // Повторите попытку выполнения операции
-                // Можно добавить логику для ограничения числа попыток
-                return false; // Или вернуть false, если достигнут предельный лимит повторных попыток
+                        // Загружаем корзину пользователя с блокировкой для записи
+                        var cart = await database.ShoppingCarts.Include(sc => sc.View)
+                                                .Where(u => u.Id == user.Id)
+                                                .FirstOrDefaultAsync();
+
+                        // Пытаемся получить товар из базы данных
+                        var medicine = await GetByIdFromDatabaseAsync(id);
+                        if (medicine == null)
+                            return false;
+
+                        // Ищем товар в корзине пользователя
+                        var existingItem = cart.View.FirstOrDefault(c => c.Id == id);
+                        if (existingItem != null)
+                        {
+                            // Увеличиваем количество товара, если он уже есть в корзине
+                            existingItem.Count += 1;
+                        }
+                        else
+                        {
+                            // Добавляем товар в корзину, если его там нет
+                            cart.View.Add(new MedicineShoppingCartView() { Id = medicine.Id, Count = 1 });
+                        }
+
+                        // Сохраняем изменения в базе данных
+                        await database.SaveChangesAsync();
+
+                        // Фиксируем транзакцию
+                        transaction.Commit();
+
+                        return true; // Операция выполнена успешно
+                    }
+                }
             }
             catch (Exception ex)
             {
-                // Обработка других исключений
+                // Обработка ошибок
                 Console.WriteLine(ex);
                 return false;
             }
         }
 
-
-        public static bool TryDeleteFromCart(int id, User user)
+        public static async Task<bool> TryDeleteFromCartAsync(int id, User user)
         {
-            var database = Database.GetInstance();
-            
-                var cart = database.ShoppingCarts.Include(sc => sc.View).Where(c => c.Id == user.Id).FirstOrDefault();
+            using (var database = new Database())
+            {
+                var cart = await database.ShoppingCarts.Include(sc => sc.View).Where(c => c.Id == user.Id).FirstOrDefaultAsync();
                 var itemToRemove = cart.View.FirstOrDefault(c => c.Id == id);
                 if (itemToRemove == null) return false;
 
                 cart.View.Remove(itemToRemove);
 
-                
-                database.SaveChanges();
+                await database.SaveChangesAsync();
                 return true;
-            
+            }
         }
 
-        public static bool TryEditCount(int id, int count, User user)
+        public static async Task<bool> TryEditCountAsync(int id, int count, User user)
         {
-            var database = Database.GetInstance();
-            var cart = database.ShoppingCarts.Include(sc => sc.View).Where(c => c.Id == user.Id).FirstOrDefault();
-            var item = cart.View.FirstOrDefault(m => m.Id == id);
+            using (var database = new Database())
+            {
+                var cart = await database.ShoppingCarts.Include(sc => sc.View).Where(c => c.Id == user.Id).FirstOrDefaultAsync();
+                var item = cart.View.FirstOrDefault(m => m.Id == id);
                 if (item == null) return false;
 
                 item.Count = count;
 
-                
-                database.SaveChanges();
+                await database.SaveChangesAsync();
                 return true;
-            
+            }
         }
 
-        public static bool TryAddUser(string name, string email, string password)
+        public static async Task<bool> TryAddUserAsync(string name, string email, string password)
         {
-            var database = Database.GetInstance();
-            try
+            using (var database = new Database())
+            {
+                try
                 {
-                    var existingUser = database.Users.FirstOrDefault(u => u.Email == email);
+                    var existingUser = await database.Users.FirstOrDefaultAsync(u => u.Email == email);
                     if (existingUser != null)
                     {
                         Console.WriteLine("User with this email already exists.");
@@ -141,7 +142,7 @@ namespace winui_db
                     var user = new User() { Email = email, Name = name, Password = password, Role = "Customer" };
                     database.Users.Add(user);
                     database.ShoppingCarts.Add(new ShoppingCart() { Id = user.Id, View = new List<MedicineShoppingCartView>() });
-                    database.SaveChanges();
+                    await database.SaveChangesAsync();
                     Console.WriteLine("SUCCESS SIGN UP");
                 }
                 catch (Exception ex)
@@ -150,7 +151,7 @@ namespace winui_db
                     return false;
                 }
                 return true;
-            
+            }
         }
 
         public static List<(string Category, string Name, string ActiveComponent, string Description, string ReleaseForm, Countries Country, int Expiration, double Price)> Init()
