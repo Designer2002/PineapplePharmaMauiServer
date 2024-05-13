@@ -33,13 +33,6 @@ class Server
     private bool breakpoint = false;
     private TcpListener server;
     private string key;
-    private async Task<User> CurrentUser()
-    {
-        using (var database = new Database())
-        {
-            return await Manager.CurrentUser(database, key);
-        }
-    }
     public static Server GetInstance()
     {
         if (instance == null)
@@ -159,10 +152,10 @@ class Server
                         await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
                         break;
                     case (int)QueryTypes.GET_CART:
-                        var c = await CurrentUser();
-                        var cart = c.ShoppingCart;
+                        var c = await Database.GetInstance().Users.Where(k => k.Email == key).FirstOrDefaultAsync();
+                        var cart = await Database.GetInstance().ShoppingCarts.Include(sc => sc.View).Where(o => o.Id == c.Id).FirstOrDefaultAsync();
 
-                        dataToSend = JsonSerializer.SerializeToUtf8Bytes<List<MedicineShoppingCartView>>(cart, new JsonSerializerOptions{ReferenceHandler = ReferenceHandler.IgnoreCycles});
+                        dataToSend = JsonSerializer.SerializeToUtf8Bytes<List<MedicineShoppingCartView>>(cart.View, new JsonSerializerOptions{ReferenceHandler = ReferenceHandler.IgnoreCycles});
                         
                         await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
                         break;
@@ -203,7 +196,7 @@ class Server
                             break;
                         id = del_id.GetInt32();
                         
-                        var del_result = Manager.TryDeleteFromCart(id, await CurrentUser());
+                        var del_result = Manager.TryDeleteFromCart(id, await Database.GetInstance().Users.Where(k => k.Email == key).FirstOrDefaultAsync());
                        if (del_result)
                             dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
                         else
@@ -218,7 +211,7 @@ class Server
                             break;
                         id = s_id.GetInt32();
                         count = s_count.GetInt32();
-                        var count_result = Manager.TryEditCount(id, count, await CurrentUser());
+                        var count_result = Manager.TryEditCount(id, count, await Database.GetInstance().Users.Where(k => k.Email == key).FirstOrDefaultAsync());
                         if (count_result)
                             dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
                         else

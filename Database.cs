@@ -24,9 +24,11 @@ namespace winui_db
             DbPath = System.IO.Path.Join(path, "medicine.db");
             instance = this;
             this.Database.EnsureCreated();
+            this.ChangeTracker.Clear();
         }
         public DbSet<Medicine> Catalog { get; set; } = null!;
         public DbSet<User> Users { get; set; } = null!;
+        public DbSet<ShoppingCart> ShoppingCarts { get; set; } = null!;
         public string DbPath { get; }
         protected override void OnConfiguring(DbContextOptionsBuilder options)
         => options.UseSqlite($"Data Source={DbPath}");
