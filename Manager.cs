@@ -11,82 +11,84 @@ namespace winui_db
 {
     public class Manager
     {
-        public static async Task<User?> CurrentUser(Database database, string key)
-        {
-            return await database.Users.Include(u => u.ShoppingCart).FirstOrDefaultAsync(u => u.Email == key);
-        }
 
         public static Medicine GetByIdFromDatabase(int id)
         {
-            using (var database = new Database())
-            {
-                return database.Catalog.FirstOrDefault(i => i.Id == id);
-            }
+            
+             return Database.GetInstance().Catalog.FirstOrDefault(i => i.Id == id);
+
         }
 
         public static User GetUserFromDatabase(string email, string password)
         {
-            using (var database = new Database())
-            {
+            var database = Database.GetInstance();
                 var user = database.Users.FirstOrDefault(i => i.Email == email);
                 if (user != null && user.Password != password)
                 {
                     user = null; // Неправильный пароль
                 }
                 return user;
-            }
+            
         }
 
         public static List<Medicine>? GetByCategoryFromDatabase(string category)
         {
-            using (var database = new Database())
-            {
+            var database = Database.GetInstance();
+            
                 return database.Catalog.Where(i => i.Category == category).ToList();
-            }
+            
         }
 
         public async static Task<bool> TryAddToCart(int id, string key)
         {
             try
             {
-                using (var database = new Database())
+                var database = Database.GetInstance();
+
+                // Получаем пользователя с загруженной корзиной покупок
+                var user = await database.Users.FirstOrDefaultAsync(u => u.Email == key);
+
+                // Если пользователь не найден или корзина покупок не загружена, возвращаем false
+                if (user == null)
+                    return false;
+
+                var cart = await database.ShoppingCarts.Include(sc => sc.View)
+                                       .FirstOrDefaultAsync(u => u.Id == user.Id);
+
+                // Попробуйте получить товар из базы данных
+                var medicine = GetByIdFromDatabase(id);
+                if (medicine == null)
+                    return false;
+
+                // Ищем товар в корзине покупок
+                var existingItem = cart.View.FirstOrDefault(c => c.Id == id);
+                if (existingItem != null)
                 {
-                    // Получаем пользователя с загруженной корзиной покупок
-                    var user = await CurrentUser(database, key);
-
-                    // Если пользователь не найден или корзина покупок не загружена, возвращаем false
-                    if (user == null || user.ShoppingCart == null)
-                        return false;
-                    
-                    var cart = user.ShoppingCart;
-                    lock(cart)
-                    {
-
-                    var medicine = GetByIdFromDatabase(id);
-                    if (medicine == null) 
-                        return false;
-
-                    var existingItem = cart.FirstOrDefault(c => c.Id == id);
-                    if (existingItem != null)
-                    {
-                        existingItem.Count += 1;
-                        database.SaveChanges();
-                        return true;
-                    }
-                    else
-                    {
-                        cart.Add(new MedicineShoppingCartView() { Id = medicine.Id, Count = 1 });
-                        database.SaveChanges();
-                        return true;
-                    }
-                    
-                    // Сохраняем изменения в контексте базы данных
-                    
-                    }
+                    // Увеличиваем количество товара, если он уже есть в корзине
+                    existingItem.Count += 1;
                 }
+                else
+                {
+                    // Добавляем товар в корзину, если его там нет
+                    cart.View.Add(new MedicineShoppingCartView() { Id = medicine.Id, Count = 1 });
+                }
+
+                // Сохраняем изменения в базе данных
+                await database.SaveChangesAsync();
+
+                return true; // Операция выполнена успешно
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                // Обработка ошибки concurrency
+                Console.WriteLine("Concurrency error occurred!!");
+                // Повторите попытку выполнения операции
+                // Можно добавить логику для ограничения числа попыток
+                return false; // Или вернуть false, если достигнут предельный лимит повторных попыток
             }
             catch (Exception ex)
             {
+                // Обработка других исключений
                 Console.WriteLine(ex);
                 return false;
             }
@@ -95,26 +97,25 @@ namespace winui_db
 
         public static bool TryDeleteFromCart(int id, User user)
         {
-            using (var database = new Database())
-            {
-                var cart = user.ShoppingCart;
-                var itemToRemove = cart.FirstOrDefault(c => c.Id == id);
+            var database = Database.GetInstance();
+            
+                var cart = database.ShoppingCarts.Include(sc => sc.View).Where(c => c.Id == user.Id).FirstOrDefault();
+                var itemToRemove = cart.View.FirstOrDefault(c => c.Id == id);
                 if (itemToRemove == null) return false;
 
-                cart.Remove(itemToRemove);
+                cart.View.Remove(itemToRemove);
 
                 
                 database.SaveChanges();
                 return true;
-            }
+            
         }
 
         public static bool TryEditCount(int id, int count, User user)
         {
-            using (var database = new Database())
-            {
-                var cart = user.ShoppingCart;
-                var item = cart.FirstOrDefault(m => m.Id == id);
+            var database = Database.GetInstance();
+            var cart = database.ShoppingCarts.Include(sc => sc.View).Where(c => c.Id == user.Id).FirstOrDefault();
+            var item = cart.View.FirstOrDefault(m => m.Id == id);
                 if (item == null) return false;
 
                 item.Count = count;
@@ -122,14 +123,13 @@ namespace winui_db
                 
                 database.SaveChanges();
                 return true;
-            }
+            
         }
 
         public static bool TryAddUser(string name, string email, string password)
         {
-            using (var database = new Database())
-            {
-                try
+            var database = Database.GetInstance();
+            try
                 {
                     var existingUser = database.Users.FirstOrDefault(u => u.Email == email);
                     if (existingUser != null)
@@ -138,8 +138,9 @@ namespace winui_db
                         return false;
                     }
 
-                    var user = new User() { Email = email, Name = name, Password = password, Role = "Customer", ShoppingCart = new List<MedicineShoppingCartView>() };
+                    var user = new User() { Email = email, Name = name, Password = password, Role = "Customer" };
                     database.Users.Add(user);
+                    database.ShoppingCarts.Add(new ShoppingCart() { Id = user.Id, View = new List<MedicineShoppingCartView>() });
                     database.SaveChanges();
                     Console.WriteLine("SUCCESS SIGN UP");
                 }
@@ -149,7 +150,7 @@ namespace winui_db
                     return false;
                 }
                 return true;
-            }
+            
         }
 
         public static List<(string Category, string Name, string ActiveComponent, string Description, string ReleaseForm, Countries Country, int Expiration, double Price)> Init()
