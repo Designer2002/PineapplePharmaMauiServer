@@ -9,14 +9,21 @@ namespace winui_db
 {
     public class Database : DbContext
     {
+        private static Database instance { get; set; }  
+        public static Database GetInstance()
+        {
+            if (instance == null)
+                instance = new Database();
+            return instance;
+        }
         public Database()
         {
-            
             var folder = Environment.SpecialFolder.LocalApplicationData;
             var path = Environment.GetFolderPath(folder);
             DbPath = System.IO.Path.Join(path, "medicine.db");
             this.Database.EnsureCreated();
             //this.ChangeTracker.Clear();
+            instance = this;
         }
         public DbSet<Medicine> Catalog { get; set; } = null!;
         public DbSet<User> Users { get; set; } = null!;
@@ -26,7 +33,7 @@ namespace winui_db
         {
             options.UseSqlite($"Data Source={DbPath}");
             options.LogTo(Console.WriteLine);
-            options.EnableSensitiveDataLogging();
+            //options.EnableSensitiveDataLogging();
         }
         
         

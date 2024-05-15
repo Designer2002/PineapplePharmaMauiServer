@@ -139,15 +139,13 @@ class Server
 
     private async Task GetCartAsync(NetworkStream stream)
     {
-        using (var database = new Database())
-        {
-            var c = await database.Users.Where(k => k.Email == key).FirstOrDefaultAsync();
-            var cart = await database.CartViews.Where(sc => sc.CartId == c.Id).ToListAsync();
 
-            var dataToSend = JsonSerializer.SerializeToUtf8Bytes<List<MedicineShoppingCartView>>(cart, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.IgnoreCycles });
+        var cart = await Manager.GetCartAsync(key);
 
-            await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
-        }
+        var dataToSend = JsonSerializer.SerializeToUtf8Bytes<List<MedicineShoppingCartView>>(cart, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.IgnoreCycles });
+
+        await stream.WriteAsync(dataToSend);
+
     }
 
     private async Task LoginAsync(JsonElement jsonObject, NetworkStream stream)
@@ -170,7 +168,7 @@ class Server
         {
             dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
         }
-        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+        await stream.WriteAsync(dataToSend);
     }
 
     private async Task RegisterAsync(JsonElement jsonObject, NetworkStream stream)
@@ -193,7 +191,7 @@ class Server
         {
             dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
         }
-        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+        await stream.WriteAsync(dataToSend);
     }
 
     private async Task SearchAsync(JsonElement jsonObject, NetworkStream stream)
@@ -214,7 +212,7 @@ class Server
         {
             dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
         }
-        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+        await stream.WriteAsync(dataToSend);
     }
 
     private async Task GetByIdAsync(JsonElement jsonObject, NetworkStream stream)
@@ -235,57 +233,54 @@ class Server
         {
             dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
         }
-        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+        await stream.WriteAsync(dataToSend);
     }
 
     private async Task DeleteFromCartAsync(JsonElement jsonObject, NetworkStream stream)
     {
-        using (var database = new Database())
+
+        if (!jsonObject.TryGetProperty("Id", out JsonElement del_id))
+            return;
+
+        var id = del_id.GetInt32();
+        var del_result = await Manager.TryDeleteFromCartAsync(id, key);
+
+        byte[] dataToSend;
+        if (del_result)
         {
-            if (!jsonObject.TryGetProperty("Id", out JsonElement del_id))
-                return;
-            
-            var id = del_id.GetInt32();
-            
-            var del_result = await Manager.TryDeleteFromCartAsync(id, await database.Users.Where(k => k.Email == key).FirstOrDefaultAsync());
-            
-            byte[] dataToSend;
-            if (del_result)
-            {
-                dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
-            }
-            else
-            {
-                dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
-            }
-            await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
         }
+        else
+        {
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
+        }
+        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+
     }
 
     private async Task SetCartItemCountAsync(JsonElement jsonObject, NetworkStream stream)
     {
-        using (var database = new Database())
+
+        if (!jsonObject.TryGetProperty("Id", out JsonElement s_id) || !jsonObject.TryGetProperty("Count", out JsonElement s_count))
+            return;
+
+        var id = s_id.GetInt32();
+        var count = s_count.GetInt32();
+
+        var count_result = await Manager.TryEditCountAsync(id, count, key);
+
+        byte[] dataToSend;
+        if (count_result)
         {
-            if (!jsonObject.TryGetProperty("Id", out JsonElement s_id) || !jsonObject.TryGetProperty("Count", out JsonElement s_count))
-                return;
-            
-            var id = s_id.GetInt32();
-            var count = s_count.GetInt32();
-            
-            var count_result = await Manager.TryEditCountAsync(id, count, await database.Users.Where(k => k.Email == key).FirstOrDefaultAsync());
-            
-            byte[] dataToSend;
-            if (count_result)
-            {
-                dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
-            }
-            else
-            {
-                dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
-            }
-            await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
         }
-        
+        else
+        {
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
+        }
+        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+
+
     }
 
     private async Task AddToCartAsync(JsonElement jsonObject, NetworkStream stream)

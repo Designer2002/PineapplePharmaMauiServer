@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -11,77 +12,74 @@ namespace winui_db
 {
     class Manager
     {
+        private static Database db = new Database();
         public static async Task<User> GetUserFromDatabaseAsync(string email, string password)
         {
-            using (var database = new Database())
+
+            var user = await db.Users.FirstOrDefaultAsync(i => i.Email == email);
+            if (user != null && user.Password != password)
             {
-                var user = await database.Users.FirstOrDefaultAsync(i => i.Email == email);
-                if (user != null && user.Password != password)
-                {
-                    user = null; // Неправильный пароль
-                }
-                return user;
+                user = null; // Неправильный пароль
             }
+            return user;
+
         }
 
         public static async Task<Medicine> GetByIdFromDatabaseAsync(int id)
         {
-            using (var database = new Database())
-            {
-                return await database.Catalog.FirstOrDefaultAsync(i => i.Id == id);
-            }
+
+            return await db.Catalog.FirstOrDefaultAsync(i => i.Id == id);
+
         }
 
         public static async Task<List<Medicine>> GetByCategoryFromDatabaseAsync(string category)
         {
-            using (var database = new Database())
-            {
-                return await database.Catalog.Where(i => i.Category == category).ToListAsync();
-            }
+
+            return await db.Catalog.Where(i => i.Category == category).ToListAsync();
+
         }
 
         public async static Task<bool> TryAddToCartAsync(int id, string key)
         {
             try
             {
-                using (var database = new Database())
+
+
+                // Получаем пользователя
+                var user = await db.Users.FirstOrDefaultAsync(u => u.Email == key);
+
+                if (user == null)
+                    return false;
+
+
+                // Пытаемся получить товар из базы данных
+                var medicine = await GetByIdFromDatabaseAsync(id);
+                if (medicine == null)
+                    return false;
+
+                // Ищем товар в корзине пользователя
+                var existingItem = await db.CartViews.Where(sc => sc.CartId == user.Id && sc.Id == id).FirstOrDefaultAsync();
+                if (existingItem != null)
                 {
-                   
-                        // Получаем пользователя
-                        var user = await database.Users.FirstOrDefaultAsync(u => u.Email == key);
-
-                        if (user == null)
-                            return false;
-
-                        
-                        // Пытаемся получить товар из базы данных
-                        var medicine = await GetByIdFromDatabaseAsync(id);
-                        if (medicine == null)
-                            return false;
-
-                        // Ищем товар в корзине пользователя
-                        var existingItem = await database.CartViews.Where(sc => sc.CartId == user.Id && sc.Id == id).FirstOrDefaultAsync();
-                        if (existingItem != null)
-                        {
-                            // Увеличиваем количество товара, если он уже есть в корзине
-                            existingItem.Count += 1;
-                        }
-                        else
-                        {
-                            // Добавляем товар в корзину, если его там нет
-                            database.CartViews.Add(new MedicineShoppingCartView() { Id = medicine.Id, Count = 1, CartId = user.Id });
-                           //database.Users.Add(new User(){ Email = "kkk", Name = "", Password = "kkk", Role = "Admin"});
-                        }
-
-                        // Сохраняем изменения в базе данных
-                        await database.SaveChangesAsync();
-
-                        
-                       
-
-                        return true; // Операция выполнена успешно
-                    
+                    // Увеличиваем количество товара, если он уже есть в корзине
+                    existingItem.Count += 1;
                 }
+                else
+                {
+                    // Добавляем товар в корзину, если его там нет
+                    db.CartViews.Add(new MedicineShoppingCartView() { Id = medicine.Id, Count = 1, CartId = user.Id });
+                    //database.Users.Add(new User(){ Email = "kkk", Name = "", Password = "kkk", Role = "Admin"});
+                }
+
+                // Сохраняем изменения в базе данных
+                await db.SaveChangesAsync();
+
+
+
+
+                return true; // Операция выполнена успешно
+
+
             }
             catch (Exception ex)
             {
@@ -91,43 +89,42 @@ namespace winui_db
             }
         }
 
-        public static async Task<bool> TryDeleteFromCartAsync(int id, User user)
+        public static async Task<bool> TryDeleteFromCartAsync(int id, string key)
         {
-            using (var database = new Database())
-            {
-                // var cart = await database.ShoppingCarts.Include(sc => sc.View).Where(c => c.Id == user.Id).FirstOrDefaultAsync();
-                // var itemToRemove = cart.View.FirstOrDefault(c => c.Id == id);
-                // if (itemToRemove == null) return false;
+            var user = await db.Users.Where(k => k.Email == key).FirstOrDefaultAsync();
+           
+            var itemToRemove = await db.CartViews.FirstOrDefaultAsync(c => c.Id == id && c.CartId == user.Id);
+            if (itemToRemove == null) return false;
 
-                // cart.View.Remove(itemToRemove);
 
-                // await database.SaveChangesAsync();
-                return true;
-            }
+            db.CartViews.Remove(itemToRemove);
+            await db.SaveChangesAsync();
+            return true;
+
         }
 
-        public static async Task<bool> TryEditCountAsync(int id, int count, User user)
+        public static async Task<bool> TryEditCountAsync(int id, int count, string key)
         {
-            using (var database = new Database())
-            {
-                // var cart = await database.ShoppingCarts.Include(sc => sc.View).Where(c => c.Id == user.Id).FirstOrDefaultAsync();
-                // var item = cart.View.FirstOrDefault(m => m.Id == id);
-                // if (item == null) return false;
+            var user = await db.Users.Where(k => k.Email == key).FirstOrDefaultAsync();
+            var item = await db.CartViews.Where(s => s.Id == id && s.CartId == user.Id).FirstOrDefaultAsync();
+            item.Count = count;
+            await db.SaveChangesAsync();
+            return true;
+            
+        }
 
-                // item.Count = count;
-
-                // await database.SaveChangesAsync();
-                return true;
-            }
+        internal async static Task<List<MedicineShoppingCartView>> GetCartAsync(string key)
+        {
+            var c = await db.Users.Where(k => k.Email == key).FirstOrDefaultAsync();
+            return await db.CartViews.Where(sc => sc.CartId == c.Id).ToListAsync();
         }
 
         public static async Task<bool> TryAddUserAsync(string name, string email, string password)
         {
-            using (var database = new Database())
-            {
+            
                 try
                 {
-                    var existingUser = await database.Users.FirstOrDefaultAsync(u => u.Email == email);
+                    var existingUser = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
                     if (existingUser != null)
                     {
                         Console.WriteLine("User with this email already exists.");
@@ -135,8 +132,8 @@ namespace winui_db
                     }
 
                     var user = new User() { Email = email, Name = name, Password = password, Role = "Customer" };
-                    database.Users.Add(user);
-                    await database.SaveChangesAsync();
+                    db.Users.Add(user);
+                    await db.SaveChangesAsync();
                     Console.WriteLine("SUCCESS SIGN UP");
                 }
                 catch (Exception ex)
@@ -145,7 +142,7 @@ namespace winui_db
                     return false;
                 }
                 return true;
-            }
+            
         }
 
         public static List<(string Category, string Name, string ActiveComponent, string Description, string ReleaseForm, Countries Country, int Expiration, double Price)> Init()
@@ -287,7 +284,7 @@ namespace winui_db
             };
         }
 
-        public static void FillMedicine(Database db)
+        public static async void FillMedicine(Database db)
         {
             var entries = Init();
             Random random = new Random();
@@ -307,7 +304,7 @@ namespace winui_db
                 }); ;
             }
 
-            db.SaveChanges(); // save changes to database
+            await db.SaveChangesAsync(); // save changes to database
         }
 
     }

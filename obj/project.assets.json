@@ -1213,19 +1213,24 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\st\\.nuget\\packages\\": {}
+    "C:\\Users\\Student\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj",
+      "projectUniqueName": "C:\\Users\\Student\\Documents\\maui\\pineapple\\server\\winui_db.csproj",
       "projectName": "winui_db",
-      "projectPath": "C:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj",
-      "packagesPath": "C:\\Users\\st\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\st\\source\\repos\\winui_db\\winui_db\\obj\\",
+      "projectPath": "C:\\Users\\Student\\Documents\\maui\\pineapple\\server\\winui_db.csproj",
+      "packagesPath": "C:\\Users\\Student\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\Student\\Documents\\maui\\pineapple\\server\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
       "configFilePaths": [
-        "C:\\Users\\st\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\Student\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -1277,7 +1282,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.315\\RuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.100\\RuntimeIdentifierGraph.json"
       }
     }
   }
