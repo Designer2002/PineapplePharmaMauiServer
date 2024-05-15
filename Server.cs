@@ -142,9 +142,9 @@ class Server
         using (var database = new Database())
         {
             var c = await database.Users.Where(k => k.Email == key).FirstOrDefaultAsync();
-            var cart = await database.ShoppingCarts.Include(sc => sc.View).Where(o => o.Id == c.Id).FirstOrDefaultAsync();
+            var cart = await database.CartViews.Where(sc => sc.CartId == c.Id).ToListAsync();
 
-            var dataToSend = JsonSerializer.SerializeToUtf8Bytes<List<MedicineShoppingCartView>>(cart.View, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.IgnoreCycles });
+            var dataToSend = JsonSerializer.SerializeToUtf8Bytes<List<MedicineShoppingCartView>>(cart, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.IgnoreCycles });
 
             await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
         }

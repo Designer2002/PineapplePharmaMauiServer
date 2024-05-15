@@ -1218,11 +1218,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "c:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj",
+      "projectUniqueName": "C:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj",
       "projectName": "winui_db",
-      "projectPath": "c:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj",
+      "projectPath": "C:\\Users\\st\\source\\repos\\winui_db\\winui_db\\winui_db.csproj",
       "packagesPath": "C:\\Users\\st\\.nuget\\packages\\",
-      "outputPath": "c:\\Users\\st\\source\\repos\\winui_db\\winui_db\\obj\\",
+      "outputPath": "C:\\Users\\st\\source\\repos\\winui_db\\winui_db\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\st\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -1280,13 +1280,5 @@
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.315\\RuntimeIdentifierGraph.json"
       }
     }
-  },
-  "logs": [
-    {
-      "code": "Undefined",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "Ошибка чтения файла кэша c:\\Users\\st\\source\\repos\\winui_db\\winui_db\\obj\\project.nuget.cache: Invalid property identifier character: <. Path 'version', line 3, position 0."
-    }
-  ]
+  }
 }

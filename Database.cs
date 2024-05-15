@@ -20,10 +20,15 @@ namespace winui_db
         }
         public DbSet<Medicine> Catalog { get; set; } = null!;
         public DbSet<User> Users { get; set; } = null!;
-        public DbSet<ShoppingCart> ShoppingCarts { get; set; } = null!;
+        public DbSet<MedicineShoppingCartView> CartViews { get; set; } = null!;
         public string DbPath { get; }
         protected override void OnConfiguring(DbContextOptionsBuilder options)
-        => options.UseSqlite($"Data Source={DbPath}");
+        {
+            options.UseSqlite($"Data Source={DbPath}");
+            options.LogTo(Console.WriteLine);
+            options.EnableSensitiveDataLogging();
+        }
+        
         
     }
 }

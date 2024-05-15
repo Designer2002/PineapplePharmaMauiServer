@@ -46,27 +46,21 @@ namespace winui_db
             {
                 using (var database = new Database())
                 {
-                    // Начинаем транзакцию
-                    using (var transaction = database.Database.BeginTransaction())
-                    {
+                   
                         // Получаем пользователя
                         var user = await database.Users.FirstOrDefaultAsync(u => u.Email == key);
 
                         if (user == null)
                             return false;
 
-                        // Загружаем корзину пользователя с блокировкой для записи
-                        var cart = await database.ShoppingCarts.Include(sc => sc.View)
-                                                .Where(u => u.Id == user.Id)
-                                                .FirstOrDefaultAsync();
-
+                        
                         // Пытаемся получить товар из базы данных
                         var medicine = await GetByIdFromDatabaseAsync(id);
                         if (medicine == null)
                             return false;
 
                         // Ищем товар в корзине пользователя
-                        var existingItem = cart.View.FirstOrDefault(c => c.Id == id);
+                        var existingItem = await database.CartViews.Where(sc => sc.CartId == user.Id && sc.Id == id).FirstOrDefaultAsync();
                         if (existingItem != null)
                         {
                             // Увеличиваем количество товара, если он уже есть в корзине
@@ -75,17 +69,18 @@ namespace winui_db
                         else
                         {
                             // Добавляем товар в корзину, если его там нет
-                            cart.View.Add(new MedicineShoppingCartView() { Id = medicine.Id, Count = 1 });
+                            database.CartViews.Add(new MedicineShoppingCartView() { Id = medicine.Id, Count = 1, CartId = user.Id });
+                           //database.Users.Add(new User(){ Email = "kkk", Name = "", Password = "kkk", Role = "Admin"});
                         }
 
                         // Сохраняем изменения в базе данных
                         await database.SaveChangesAsync();
 
-                        // Фиксируем транзакцию
-                        transaction.Commit();
+                        
+                       
 
                         return true; // Операция выполнена успешно
-                    }
+                    
                 }
             }
             catch (Exception ex)
@@ -100,13 +95,13 @@ namespace winui_db
         {
             using (var database = new Database())
             {
-                var cart = await database.ShoppingCarts.Include(sc => sc.View).Where(c => c.Id == user.Id).FirstOrDefaultAsync();
-                var itemToRemove = cart.View.FirstOrDefault(c => c.Id == id);
-                if (itemToRemove == null) return false;
+                // var cart = await database.ShoppingCarts.Include(sc => sc.View).Where(c => c.Id == user.Id).FirstOrDefaultAsync();
+                // var itemToRemove = cart.View.FirstOrDefault(c => c.Id == id);
+                // if (itemToRemove == null) return false;
 
-                cart.View.Remove(itemToRemove);
+                // cart.View.Remove(itemToRemove);
 
-                await database.SaveChangesAsync();
+                // await database.SaveChangesAsync();
                 return true;
             }
         }
@@ -115,13 +110,13 @@ namespace winui_db
         {
             using (var database = new Database())
             {
-                var cart = await database.ShoppingCarts.Include(sc => sc.View).Where(c => c.Id == user.Id).FirstOrDefaultAsync();
-                var item = cart.View.FirstOrDefault(m => m.Id == id);
-                if (item == null) return false;
+                // var cart = await database.ShoppingCarts.Include(sc => sc.View).Where(c => c.Id == user.Id).FirstOrDefaultAsync();
+                // var item = cart.View.FirstOrDefault(m => m.Id == id);
+                // if (item == null) return false;
 
-                item.Count = count;
+                // item.Count = count;
 
-                await database.SaveChangesAsync();
+                // await database.SaveChangesAsync();
                 return true;
             }
         }
@@ -141,7 +136,6 @@ namespace winui_db
 
                     var user = new User() { Email = email, Name = name, Password = password, Role = "Customer" };
                     database.Users.Add(user);
-                    database.ShoppingCarts.Add(new ShoppingCart() { Id = user.Id, View = new List<MedicineShoppingCartView>() });
                     await database.SaveChangesAsync();
                     Console.WriteLine("SUCCESS SIGN UP");
                 }

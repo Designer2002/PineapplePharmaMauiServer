@@ -31,6 +31,8 @@ namespace winui_db
 
     public class MedicineShoppingCartView
     {
+        public int CartId {get; set; }
+        [Key]
         public int Id { get; set; }
         public int Count { get; set; }
     }
