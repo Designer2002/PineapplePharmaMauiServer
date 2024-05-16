@@ -284,6 +284,11 @@ namespace winui_db
             };
         }
 
+        public static async void AddAdmin(Database db)
+        {
+            db.Users.Add(new User() { Email = "admin@admin.ru", Name = "admin", Password = "admin", Role = "Administrator" });
+            await db.SaveChangesAsync();
+        }
         public static async void FillMedicine(Database db)
         {
             var entries = Init();
@@ -305,6 +310,21 @@ namespace winui_db
             }
 
             await db.SaveChangesAsync(); // save changes to database
+        }
+
+        public static async Task<bool> AddNewMedicine(Medicine medicine)
+        {
+            db.Catalog.Add(medicine);
+            try
+            {
+                await db.SaveChangesAsync();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+            
         }
 
     }

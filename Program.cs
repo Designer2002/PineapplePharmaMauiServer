@@ -6,7 +6,8 @@ namespace winui_db
     {
         async static Task Main(string[] args)
         {
-            //var db = db;
+            //var db = new Database();
+            //Manager.AddAdmin(db);
             //Manager.FillMedicine(db);
             await Server.GetInstance().StartAsync();
             

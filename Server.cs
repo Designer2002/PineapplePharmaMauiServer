@@ -19,7 +19,8 @@ public enum QueryTypes
         ADD_TO_CART,
         GET_BY_ID,
         DELETE_FROM_CART,
-        SET_CART_ITEM_COUNT
+        SET_CART_ITEM_COUNT,
+        ADD_TO_CATALOG
 }
 
 public enum SentDataMessages
@@ -124,6 +125,9 @@ class Server
                         break;
                     case (int)QueryTypes.SET_CART_ITEM_COUNT:
                         await SetCartItemCountAsync(jsonObject, stream);
+                        break;
+                    case (int)QueryTypes.ADD_TO_CATALOG:
+                        await AddToCatalogAsync(jsonObject, stream);
                         break;
                 }
             }
@@ -292,6 +296,27 @@ class Server
         
         var add_result = await Manager.TryAddToCartAsync(id, key);
         
+        byte[] dataToSend;
+        if (add_result)
+        {
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.SUCCESS);
+        }
+        else
+        {
+            dataToSend = JsonSerializer.SerializeToUtf8Bytes<int>((int)SentDataMessages.ERROR);
+        }
+        await stream.WriteAsync(dataToSend, 0, dataToSend.Length);
+    }
+
+    private async Task AddToCatalogAsync(JsonElement jsonObject, NetworkStream stream)
+    {
+        if (!jsonObject.TryGetProperty("Medicine", out JsonElement med))
+            return;
+
+        var medicine = JsonSerializer.Deserialize<Medicine>(med);
+
+        var add_result = await Manager.AddNewMedicine(medicine);
+
         byte[] dataToSend;
         if (add_result)
         {
